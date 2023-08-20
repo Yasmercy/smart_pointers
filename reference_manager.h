@@ -25,7 +25,6 @@ public:
 
     void decrement_weak() {
         --weak_count_;
-        safe_reset();
     }
 
     int weak_count() {
@@ -41,7 +40,7 @@ public:
     }
 
     bool empty() {
-        return ptr == nullptr && shared_count_ == 0 && weak_count_ == 0;
+        return shared_count_ == 0 && weak_count_ == 0;
     }
     
 
@@ -49,14 +48,12 @@ private:
     void reset() {
         if (ptr != nullptr) {
             delete ptr;
+            ptr = nullptr;
         }
-        shared_count_ = 0;
-        weak_count_ = 0;
-        ptr = nullptr;
     }
     
     bool expired() {
-        return shared_count_ <= 0;
+        return shared_count_ == 0;
     }
 
     void safe_reset() {
