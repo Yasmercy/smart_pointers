@@ -1,182 +1,144 @@
 #ifndef MY_SHARED_PTR_H
 #define MY_SHARED_PTR_H
 
-#include <vector>
-
-struct ReferenceManager {
-    // todo: make these atomic
-    int ref_count = 1; // shared_ptr_count
-    int weak_ptr_count = 0;
-
-    ~ReferenceManager() {
-        std::cout << "manager out\n";
-    }
-};
+#include "reference_manager.h"
+#include <stdexcept>
 
 template <typename T>
 class SharedPtr {
 public:
     // rule of 5
-    SharedPtr();
+    SharedPtr() = default;
     SharedPtr(T* ptr);
-    SharedPtr(T* ptr, ReferenceManager* ref_count);
-    SharedPtr(SharedPtr<T>& ptr);
-    SharedPtr(SharedPtr<T>&& ptr);
+    SharedPtr(ReferenceManager<T>* ref);
+    SharedPtr(SharedPtr<T>& other);
+    SharedPtr(SharedPtr<T>&& other);
     SharedPtr<T>& operator=(SharedPtr<T>& other);
     SharedPtr<T>& operator=(SharedPtr<T>&& other);
     ~SharedPtr();
 
-    // useful methods
+    // methods
     T* get();
+    T* operator->();
+    T& operator*();
+    int use_count();
+    ReferenceManager<T>* get_ref_ptr();
     void reset();
     void reset(T* ptr);
-    T& operator*();
-    T* operator->();
-    int use_count();
-    ReferenceManager* use_count_ptr();
     bool unique();
 
 private:
-    void increment_counter();
-    void decrement_counter();
-    void clear();
-
-    T* ptr_;
-    ReferenceManager* ref_count;
+    ReferenceManager<T>* ref = nullptr;
 };
 
-// implementing shared_ptr
 template <typename T>
-SharedPtr<T>::SharedPtr() : ptr_(nullptr), ref_count(nullptr) {}
-
-template <typename T>
-SharedPtr<T>::SharedPtr(T* ptr) : ptr_(ptr), ref_count(new ReferenceManager {}) {}
-
-template <typename T>
-SharedPtr<T>::SharedPtr(WeakPtr<T>& ptr) : ptr_(ptr.ptr), ref_count(ptr.ref_count) {
-    increment_counter();
+SharedPtr<T>::SharedPtr(T* ptr) : ref(new ReferenceManager {ptr}) {
+    ref->increment_shared();
 }
 
 template <typename T>
-SharedPtr<T>::SharedPtr(SharedPtr<T>& ptr) : ptr_(ptr.ptr_), ref_count(ptr.ref_count) {
-    increment_counter();
+SharedPtr<T>::SharedPtr(ReferenceManager<T>* ref) : ref(ref) {
+    if (ref != nullptr) {
+        ref->increment_shared();
+    }
 }
 
 template <typename T>
-SharedPtr<T>::SharedPtr(SharedPtr<T>&& ptr) : ptr_(ptr.ptr_), ref_count(ptr.ref_count) {
-    // clear the other
-    ptr.ptr_ = nullptr;
-    ptr.ref_count = nullptr;
+SharedPtr<T>::SharedPtr(SharedPtr<T>& other) : ref(other.ref) {
+    if (ref != nullptr) {
+        ref->increment_shared();
+    }
+}
+
+template <typename T>
+SharedPtr<T>::SharedPtr(SharedPtr<T>&& other) : ref(other.ref) {
+    other.ref = nullptr;
 }
 
 template <typename T>
 SharedPtr<T>& SharedPtr<T>::operator=(SharedPtr<T>& other) {
-    clear();
-    ptr_ = other.ptr_;
-    ref_count = other.ref_count;
-    increment_counter();
+    reset();
+    ref = other.ref;
+    if (ref != nullptr) {
+        ref->increment_shared();
+    }
     return *this;
 }
 
 template <typename T>
 SharedPtr<T>& SharedPtr<T>::operator=(SharedPtr<T>&& other) {
-    clear();
-    ptr_ = other.ptr_;
-    ref_count = other.ref_count;
-    other.ptr_ = nullptr;
-    other.ref_count = nullptr;
+    reset();
+    std::swap(ref, other.ref);
     return *this;
 }
 
 template <typename T>
 SharedPtr<T>::~SharedPtr() {
-    clear();
+    std::cout << "deleting shared ptr: " << this << "\n";
+    reset();
 }
 
 template <typename T>
 T* SharedPtr<T>::get() {
-    return ptr_;
-}
-
-template <typename T>
-void SharedPtr<T>::reset() {
-    clear();
-}
-
-template <typename T>
-void SharedPtr<T>::reset(T* ptr) {
-    clear();
-    ref_count = new ReferenceManager {};
-    ptr_ = ptr;
-}
-
-template <typename T>
-T& SharedPtr<T>::operator*() {
-    if (ptr_ == nullptr) {
-        throw (std::runtime_error("Dereferencing nullptr"));
-    }
-    return *ptr_;
+    return (ref == nullptr) ? nullptr : ref->get();
 }
 
 template <typename T>
 T* SharedPtr<T>::operator->() {
-    if (ptr_ == nullptr) {
-        throw (std::runtime_error("Dereferencing nullptr"));
+    if (ref == nullptr) {
+        throw std::runtime_error("Dereferencing nullptr");
     }
-    return ptr_;
+    return ref->get();
 }
 
 template <typename T>
-int SharedPtr<T>::use_count() {
-    if (ref_count == nullptr) {
-        return -1;
+T& SharedPtr<T>::operator*() {
+    if (ref == nullptr) {
+        throw std::runtime_error("Dereferencing nullptr");
     }
-    return ref_count->ref_count;
+    return *ref->get();
+}
+template <typename T>
+int SharedPtr<T>::use_count() {
+    return (ref == nullptr) ? 0 : ref->shared_count();
+}
+
+template <typename T>
+ReferenceManager<T>* SharedPtr<T>::get_ref_ptr() {
+    return ref;
+}
+
+template <typename T>
+void SharedPtr<T>::reset() {
+    if (ref != nullptr) {
+        ref->decrement_shared();
+        if (ref->empty()) {
+            delete ref;
+        }
+    }
+    ref = nullptr;
+}
+
+template <typename T>
+void SharedPtr<T>::reset(T* ptr) {
+    if (ptr == this->get()) {
+        return;
+    }
+
+    reset();
+    ref = new ReferenceManager {ptr};
+    ref->increment_shared();
 }
 
 template <typename T>
 bool SharedPtr<T>::unique() {
-    return use_count() == 1;
-}
-
-template <typename T>
-void SharedPtr<T>::clear() {
-    // decrement (maybe delete) the current object
-    if (ptr_ != nullptr) {
-        decrement_counter();
-        if (use_count() == 0) {
-            delete ptr_;
-            if (ref_count->weak_ptr_count == 0) {
-                delete ref_count;
-            }
-            ptr_ = nullptr;
-            ref_count = nullptr;
-        }
-    }
-}
-
-template <typename T>
-void SharedPtr<T>::decrement_counter() {
-    if (ref_count != nullptr) {
-        --ref_count->ref_count;
-    }
-}
-
-template <typename T>
-void SharedPtr<T>::increment_counter() {
-    if (ref_count != nullptr) {
-        ++ref_count->ref_count;
-    }
-}
-
-template <typename T>
-ReferenceManager* SharedPtr<T>::use_count_ptr() {
-    return ref_count;
+    return ref == nullptr || ref->shared_count() == 1;
 }
 
 // implementing non-member functions
 template <typename T>
 bool operator==(SharedPtr<T>& x, SharedPtr<T>& y) {
+
     return x.get() == y.get();
 }
 

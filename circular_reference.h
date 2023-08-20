@@ -22,17 +22,34 @@ void shared_ptr_leak() {
 struct WeakNode {
     int data;
     WeakPtr<WeakNode> next;
+
+    ~WeakNode() {
+        std::cout << "deleting weak node\n";
+    }
 };
 
 void weak_ptr_no_leak() {
     SharedPtr<WeakNode> a {new WeakNode {3, WeakPtr<WeakNode>()}};
     SharedPtr<WeakNode> b {new WeakNode {4, WeakPtr<WeakNode>()}};
-    a->next = std::move(WeakPtr{b}); // increments the weak_count of b
-    b->next = std::move(WeakPtr{a}); // increments the weak_count of a
+    a->next = WeakPtr{b}; // increments the weak_count of b
+    b->next = WeakPtr{a}; // increments the weak_count of a
     
     std::cout << a->data << "\n";
     std::cout << a->next.upgrade()->data << "\n";
     std::cout << a->next.upgrade()->next.upgrade()->data << "\n";
+
+    std::cout << "func ended\n";
+
+    // SharedPtr a -> 1 shared ref, 1 weak ref
+    // SharedPtr b -> 1 shared ref, 1 weak ref
+    //
+    // -- ~a
+    // a has 0 shared, so a.data is deleted
+    // so b.data.next is deleted (b.data.next = a.data)
+    //
+    // -- ~b
+    // b has 0 shared, so b.data is deleted
+    // so the fields b.data.next is also deleted (twice)
 }
 
 #endif

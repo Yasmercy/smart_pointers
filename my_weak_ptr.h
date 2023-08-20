@@ -2,12 +2,13 @@
 #define MY_WEAK_PTR_H
 
 #include "my_shared_ptr.h"
+#include "reference_manager.h"
 
 template <typename T>
 class WeakPtr {
 public:
     // rule of 5
-    WeakPtr();
+    WeakPtr() = default;
     WeakPtr(SharedPtr<T>& other);
     WeakPtr(WeakPtr<T>& other);
     WeakPtr(WeakPtr<T>&& other);
@@ -15,88 +16,90 @@ public:
     WeakPtr<T>& operator=(WeakPtr<T>&& other);
     ~WeakPtr();
 
-    void reset();
-    int use_count();
+    // methods
+    int shared_count();
     bool expired();
     SharedPtr<T> upgrade();
+    void reset();
 private:
-    T* ptr_;
-    ReferenceManager* ref_count;
+    ReferenceManager<T>* ref = nullptr;
 };
 
-// implementing weak_ptr
 template <typename T>
-WeakPtr<T>::WeakPtr() : ptr_(nullptr), ref_count(nullptr) {}
-
-template <typename T>
-WeakPtr<T>::WeakPtr(SharedPtr<T>& other) : ptr_(other.get()), ref_count(other.use_count_ptr()) {
-    ++ref_count->weak_ptr_count;
+WeakPtr<T>::WeakPtr(SharedPtr<T>& other) : ref(other.get_ref_ptr()) {
+    if (ref != nullptr) {
+        ref->increment_weak();
+    }
 }
 
 template <typename T>
-WeakPtr<T>::WeakPtr(WeakPtr<T>& ptr) : ptr_(ptr.ptr_), ref_count(ptr.ref_count) {
-    ++ref_count->weak_ptr_count;
+WeakPtr<T>::WeakPtr(WeakPtr<T>& other) : ref(other.ref) {
+    if (ref != nullptr) {
+        ref->increment_weak();
+    }
 }
 
 template <typename T>
-WeakPtr<T>::WeakPtr(WeakPtr<T>&& ptr) : ptr_(ptr.ptr_), ref_count(ptr.ref_count) {
-    // clear the other
-    ptr.reset();
+WeakPtr<T>::WeakPtr(WeakPtr<T>&& other) : ref(other.ref) {
+    if (ref != nullptr) {
+        ref->increment_weak();
+    }
+    other.reset();
 }
 
 template <typename T>
 WeakPtr<T>& WeakPtr<T>::operator=(WeakPtr<T>& other) {
-    ptr_ = other.ptr_;
-    ref_count = other.ref_count;
-    ++ref_count->weak_ptr_count;
+    reset();
+    ref = other.ref;
+    if (ref != nullptr) {
+        ref->increment_weak();
+    }
     return *this;
 }
 
 template <typename T>
 WeakPtr<T>& WeakPtr<T>::operator=(WeakPtr<T>&& other) {
-    ptr_ = other.ptr_;
-    ref_count = other.ref_count;
+    reset();
+    ref = other.ref;
+    if (ref != nullptr) {
+        ref ->increment_weak();
+    }
     other.reset();
     return *this;
 }
 
 template <typename T>
 WeakPtr<T>::~WeakPtr() {
+    std::cout << "deleting weak ptr: " << this << "\n";
     reset();
 }
 
 template <typename T>
-int WeakPtr<T>::use_count() {
-    if (ref_count == nullptr) {
-        return -1;
-    }
-    return ref_count->ref_count;
+int WeakPtr<T>::shared_count() {
+    return (ref == nullptr) ? 0 : ref->shared_count();
 }
 
 template <typename T>
 bool WeakPtr<T>::expired() {
-    return (ref_count == nullptr || ref_count->ref_count == 0);
+    return shared_count() == 0;
 }
 
 template <typename T>
 SharedPtr<T> WeakPtr<T>::upgrade() {
-    if (expired()) {
-        return SharedPtr<T> {};
-    }
-    return SharedPtr<T> {*this};
+    return (expired()) ? SharedPtr<T> {} : SharedPtr<T> {ref};
 }
 
 template <typename T>
 void WeakPtr<T>::reset() {
-    ptr_ = nullptr;
-
-    if (ref_count != nullptr) {
-        --ref_count->weak_ptr_count;
-        if (ref_count->ref_count == 0 && ref_count->weak_ptr_count == 0) {
-            delete ref_count;
-        }
+    if (ref == nullptr) {
+        return;
     }
-    ref_count = nullptr;
+
+    ref->decrement_weak();
+    if (ref->empty()) {
+        delete ref;
+    }
+    ref = nullptr;
 }
 
 #endif

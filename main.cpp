@@ -1,8 +1,6 @@
 #include <iostream>
 #include <utility>
-#include "my_unique_ptr.h"
-#include "my_shared_ptr.h"
-#include "my_weak_ptr.h"
+#include "prelude.h"
 #include "circular_reference.h"
 
 void test_unique_ptr() {
@@ -58,13 +56,23 @@ void test_shared_ptr() {
     std::cout << *p2 << "=7\n";
 }
 
+void test_shared_ptr_2() {
+    SharedPtr<int> p0 {new int {1}};
+    SharedPtr<int> p1 = p0;
+    SharedPtr<int> p2 = std::move(p1);
+
+    p0.reset();
+    p1.reset();
+    p2.reset();
+}
+
 void test_expired_weak_ptr() {
     SharedPtr<int> p1 {new int {1}};
     WeakPtr<int> w {p1};
 
     std::cout << p1.use_count() << "=1\n";
     p1.reset();
-    std::cout << p1.use_count() << "=1\n";
+    std::cout << p1.use_count() << "=0\n";
     SharedPtr<int> p2 = w.upgrade(); // this would not work
 
     try {
@@ -80,7 +88,8 @@ void test_expired_weak_ptr() {
 int main() {
     // test_unique_ptr();
     // test_shared_ptr();
-    // shared_ptr_leak();
-    weak_ptr_no_leak();
+    // test_shared_ptr_2();
     // test_expired_weak_ptr();
+    weak_ptr_no_leak();
+    // shared_ptr_leak();
 }
