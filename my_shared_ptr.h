@@ -1,12 +1,14 @@
 #ifndef MY_SHARED_PTR_H
 #define MY_SHARED_PTR_H
 
-#include "reference_manager.h"
+#include <iostream>
 #include <stdexcept>
+
+#include "reference_manager.h"
 
 template <typename T>
 class SharedPtr {
-public:
+  public:
     // rule of 5
     SharedPtr() = default;
     SharedPtr(T* ptr);
@@ -27,31 +29,31 @@ public:
     void reset(T* ptr);
     bool unique();
 
-private:
+  private:
     ReferenceManager<T>* ref = nullptr;
 };
 
 template <typename T>
-SharedPtr<T>::SharedPtr(T* ptr) : ref(new ReferenceManager {ptr}) {
+SharedPtr<T>::SharedPtr(T* ptr): ref(new ReferenceManager{ptr}) {
     ref->increment_shared();
 }
 
 template <typename T>
-SharedPtr<T>::SharedPtr(ReferenceManager<T>* ref) : ref(ref) {
+SharedPtr<T>::SharedPtr(ReferenceManager<T>* ref): ref(ref) {
     if (ref != nullptr) {
         ref->increment_shared();
     }
 }
 
 template <typename T>
-SharedPtr<T>::SharedPtr(SharedPtr<T>& other) : ref(other.ref) {
+SharedPtr<T>::SharedPtr(SharedPtr<T>& other): ref(other.ref) {
     if (ref != nullptr) {
         ref->increment_shared();
     }
 }
 
 template <typename T>
-SharedPtr<T>::SharedPtr(SharedPtr<T>&& other) : ref(other.ref) {
+SharedPtr<T>::SharedPtr(SharedPtr<T>&& other): ref(other.ref) {
     other.ref = nullptr;
 }
 
@@ -98,6 +100,7 @@ T& SharedPtr<T>::operator*() {
     }
     return *ref->get();
 }
+
 template <typename T>
 int SharedPtr<T>::use_count() {
     return (ref == nullptr) ? 0 : ref->shared_count();
@@ -126,7 +129,7 @@ void SharedPtr<T>::reset(T* ptr) {
     }
 
     reset();
-    ref = new ReferenceManager {ptr};
+    ref = new ReferenceManager{ptr};
     ref->increment_shared();
 }
 
@@ -138,7 +141,6 @@ bool SharedPtr<T>::unique() {
 // implementing non-member functions
 template <typename T>
 bool operator==(SharedPtr<T>& x, SharedPtr<T>& y) {
-
     return x.get() == y.get();
 }
 
