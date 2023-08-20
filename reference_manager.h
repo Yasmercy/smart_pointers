@@ -1,60 +1,47 @@
 #ifndef REFERENCE_MANAGER_H
 #define REFERENCE_MANAGER_H
 
+#include <iostream>
+
 template <typename T>
 class ReferenceManager {
-public:
+  public:
     ReferenceManager() = default;
-    ReferenceManager(T* ptr) : ptr(ptr) {}
+
+    ReferenceManager(T* ptr): ptr(ptr) {}
+
     ~ReferenceManager() {
         std::cout << "deleting ref manager: " << this << "\n";
     }
 
-    void increment_shared() {
-        ++shared_count_;
-    }
+    void increment_shared() { ++shared_count_; }
 
     void decrement_shared() {
         --shared_count_;
         safe_reset();
     }
 
-    void increment_weak() {
-        ++weak_count_;
-    }
+    void increment_weak() { ++weak_count_; }
 
-    void decrement_weak() {
-        --weak_count_;
-    }
+    void decrement_weak() { --weak_count_; }
 
-    int weak_count() {
-        return weak_count_;
-    }
+    int weak_count() { return weak_count_; }
 
-    int shared_count() {
-        return shared_count_;
-    }
+    int shared_count() { return shared_count_; }
 
-    T* get() {
-        return ptr;
-    }
+    T* get() { return ptr; }
 
-    bool empty() {
-        return shared_count_ == 0 && weak_count_ == 0;
-    }
-    
+    bool empty() { return shared_count_ == 0 && weak_count_ == 0; }
 
-private:
+  private:
     void reset() {
         if (ptr != nullptr) {
             delete ptr;
             ptr = nullptr;
         }
     }
-    
-    bool expired() {
-        return shared_count_ == 0;
-    }
+
+    bool expired() { return shared_count_ == 0; }
 
     void safe_reset() {
         if (expired()) {

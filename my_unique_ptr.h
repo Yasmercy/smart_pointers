@@ -1,9 +1,11 @@
 #ifndef MY_UNIQUE_PTR_H
 #define MY_UNIQUE_PTR_H
 
+#include <stdexcept>
+
 template <typename T>
 class UniquePtr {
-public:
+  public:
     // rule of 5
     UniquePtr();
     UniquePtr(T* p);
@@ -22,20 +24,19 @@ public:
     void reset(T* p);
     T* get();
 
-private:
+  private:
     T* ptr_;
-
 };
 
 // implementing UniquePtr
 template <typename T>
-UniquePtr<T>::UniquePtr() : ptr_(nullptr) {}
+UniquePtr<T>::UniquePtr(): ptr_(nullptr) {}
 
 template <typename T>
-UniquePtr<T>::UniquePtr(T* p) : ptr_(p) {}
+UniquePtr<T>::UniquePtr(T* p): ptr_(p) {}
 
 template <typename T>
-UniquePtr<T>::UniquePtr(UniquePtr<T>& other) : ptr_(nullptr) {
+UniquePtr<T>::UniquePtr(UniquePtr<T>& other): ptr_(nullptr) {
     // this is the copy constructor
     // creates a deepcopy of the data stored in other
     if (this == &other) {
@@ -45,11 +46,11 @@ UniquePtr<T>::UniquePtr(UniquePtr<T>& other) : ptr_(nullptr) {
     if (other == nullptr) {
         return;
     };
-    ptr_ = new T {*ptr_};
+    ptr_ = new T{*ptr_};
 }
 
 template <typename T>
-UniquePtr<T>::UniquePtr(UniquePtr<T>&& other) : ptr_(other.ptr_) {
+UniquePtr<T>::UniquePtr(UniquePtr<T>&& other): ptr_(other.ptr_) {
     // this is the move constructor
     // takes ownership of the data in other
     // and resets data
@@ -64,7 +65,7 @@ UniquePtr<T>& UniquePtr<T>::operator=(UniquePtr<T>& other) {
     if (ptr_ != nullptr) {
         delete ptr_;
     }
-    ptr_ = new T {*other};
+    ptr_ = new T{*other};
     return *this;
 }
 
