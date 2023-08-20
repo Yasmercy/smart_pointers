@@ -20,6 +20,7 @@ public:
     T& operator*();
     T* operator->();
     void reset(T* p);
+    T* get();
 
 private:
     T* ptr_;
@@ -34,9 +35,17 @@ template <typename T>
 UniquePtr<T>::UniquePtr(T* p) : ptr_(p) {}
 
 template <typename T>
-UniquePtr<T>::UniquePtr(UniquePtr<T>& other) : ptr_(new T {*other}){
+UniquePtr<T>::UniquePtr(UniquePtr<T>& other) : ptr_(nullptr) {
     // this is the copy constructor
     // creates a deepcopy of the data stored in other
+    if (this == &other) {
+        return;
+    }
+
+    if (other == nullptr) {
+        return;
+    };
+    ptr_ = new T {*ptr_};
 }
 
 template <typename T>
@@ -98,6 +107,21 @@ void UniquePtr<T>::reset(T* p) {
     // and changes ownership to a new value
     delete ptr_;
     ptr_ = p;
+}
+
+template <typename T>
+T* UniquePtr<T>::get() {
+    return ptr_;
+}
+
+template <typename T>
+bool operator==(UniquePtr<T>& p1, UniquePtr<T>& p2) {
+    return p1.get() == p2.get();
+}
+
+template <typename T>
+bool operator==(UniquePtr<T>& p1, T* p2) {
+    return p1.get() == p2;
 }
 
 #endif

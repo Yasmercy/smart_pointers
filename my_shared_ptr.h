@@ -3,13 +3,23 @@
 
 #include <vector>
 
+struct ReferenceManager {
+    // todo: make these atomic
+    int ref_count = 1; // shared_ptr_count
+    int weak_ptr_count = 0;
+
+    ~ReferenceManager() {
+        std::cout << "manager out\n";
+    }
+};
+
 template <typename T>
 class SharedPtr {
 public:
     // rule of 5
     SharedPtr();
     SharedPtr(T* ptr);
-    SharedPtr(T* ptr, int* ref_count);
+    SharedPtr(T* ptr, ReferenceManager* ref_count);
     SharedPtr(SharedPtr<T>& ptr);
     SharedPtr(SharedPtr<T>&& ptr);
     SharedPtr<T>& operator=(SharedPtr<T>& other);
@@ -18,11 +28,12 @@ public:
 
     // useful methods
     T* get();
+    void reset();
     void reset(T* ptr);
     T& operator*();
     T* operator->();
     int use_count();
-    int* use_count_ptr();
+    ReferenceManager* use_count_ptr();
     bool unique();
 
 private:
@@ -31,7 +42,7 @@ private:
     void clear();
 
     T* ptr_;
-    int* ref_count; // this should be an atomic int
+    ReferenceManager* ref_count;
 };
 
 // implementing shared_ptr
@@ -39,10 +50,12 @@ template <typename T>
 SharedPtr<T>::SharedPtr() : ptr_(nullptr), ref_count(nullptr) {}
 
 template <typename T>
-SharedPtr<T>::SharedPtr(T* ptr) : ptr_(ptr), ref_count(new int {1}) {}
+SharedPtr<T>::SharedPtr(T* ptr) : ptr_(ptr), ref_count(new ReferenceManager {}) {}
 
 template <typename T>
-SharedPtr<T>::SharedPtr(T* ptr, int* ref_count) : ptr_(ptr), ref_count(ref_count) {}
+SharedPtr<T>::SharedPtr(WeakPtr<T>& ptr) : ptr_(ptr.ptr), ref_count(ptr.ref_count) {
+    increment_counter();
+}
 
 template <typename T>
 SharedPtr<T>::SharedPtr(SharedPtr<T>& ptr) : ptr_(ptr.ptr_), ref_count(ptr.ref_count) {
@@ -86,9 +99,14 @@ T* SharedPtr<T>::get() {
 }
 
 template <typename T>
+void SharedPtr<T>::reset() {
+    clear();
+}
+
+template <typename T>
 void SharedPtr<T>::reset(T* ptr) {
     clear();
-    ref_count = new int {1};
+    ref_count = new ReferenceManager {};
     ptr_ = ptr;
 }
 
@@ -113,7 +131,7 @@ int SharedPtr<T>::use_count() {
     if (ref_count == nullptr) {
         return -1;
     }
-    return *ref_count;
+    return ref_count->ref_count;
 }
 
 template <typename T>
@@ -126,9 +144,11 @@ void SharedPtr<T>::clear() {
     // decrement (maybe delete) the current object
     if (ptr_ != nullptr) {
         decrement_counter();
-        if (*ref_count == 0) {
+        if (use_count() == 0) {
             delete ptr_;
-            delete ref_count;
+            if (ref_count->weak_ptr_count == 0) {
+                delete ref_count;
+            }
             ptr_ = nullptr;
             ref_count = nullptr;
         }
@@ -137,16 +157,20 @@ void SharedPtr<T>::clear() {
 
 template <typename T>
 void SharedPtr<T>::decrement_counter() {
-    --*ref_count;
+    if (ref_count != nullptr) {
+        --ref_count->ref_count;
+    }
 }
 
 template <typename T>
 void SharedPtr<T>::increment_counter() {
-    ++*ref_count;
+    if (ref_count != nullptr) {
+        ++ref_count->ref_count;
+    }
 }
 
 template <typename T>
-int* SharedPtr<T>::use_count_ptr() {
+ReferenceManager* SharedPtr<T>::use_count_ptr() {
     return ref_count;
 }
 

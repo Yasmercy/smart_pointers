@@ -27,8 +27,8 @@ struct WeakNode {
 void weak_ptr_no_leak() {
     SharedPtr<WeakNode> a {new WeakNode {3, WeakPtr<WeakNode>()}};
     SharedPtr<WeakNode> b {new WeakNode {4, WeakPtr<WeakNode>()}};
-    a->next = WeakPtr{b};
-    b->next = WeakPtr{a};
+    a->next = std::move(WeakPtr{b}); // increments the weak_count of b
+    b->next = std::move(WeakPtr{a}); // increments the weak_count of a
     
     std::cout << a->data << "\n";
     std::cout << a->next.upgrade()->data << "\n";

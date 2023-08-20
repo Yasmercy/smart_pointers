@@ -58,9 +58,29 @@ void test_shared_ptr() {
     std::cout << *p2 << "=7\n";
 }
 
+void test_expired_weak_ptr() {
+    SharedPtr<int> p1 {new int {1}};
+    WeakPtr<int> w {p1};
+
+    std::cout << p1.use_count() << "=1\n";
+    p1.reset();
+    std::cout << p1.use_count() << "=1\n";
+    SharedPtr<int> p2 = w.upgrade(); // this would not work
+
+    try {
+        int val = *p2;
+        std::cout << "p2 = " << val << "\n";
+    } 
+    catch (std::runtime_error e) {
+        std::cout << "no dangling pointer created!" << "\n";
+        std::cout << e.what() << "\n";
+    }
+}
+
 int main() {
     // test_unique_ptr();
     // test_shared_ptr();
     // shared_ptr_leak();
     weak_ptr_no_leak();
+    // test_expired_weak_ptr();
 }
